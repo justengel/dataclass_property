@@ -109,8 +109,7 @@ def _get_field(cls, a_name, a_type):
             default_attr = getattr(default, 'default_attr', MISSING)
 
             if default_factory_attr != MISSING:
-                if (isinstance(default_factory_attr, (staticmethod, classmethod)) or
-                        len(inspect.signature(default_factory_attr).parameters) > 0):
+                if isinstance(default_factory_attr, (staticmethod, classmethod)):
                     default_factory_attr = default_factory_attr.__get__(cls, cls)
                 f = field(default_factory=default_factory_attr)
             elif default_attr != MISSING:
