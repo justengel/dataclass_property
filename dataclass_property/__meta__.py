@@ -1,0 +1,6 @@
+name = 'dataclass_property'
+version = '1.0.0'
+description = 'Add the ability to use properties with dataclasses.'
+url = 'https://github.com/justengel/dataclass_property'
+author = 'Justin Engel'
+author_email = 'jtengel08@gmail.com'
