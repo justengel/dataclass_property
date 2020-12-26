@@ -56,7 +56,7 @@ class field_property(property):
     __call__ = getter
 
 
-def dataclass(cls=None, /, *, init=True, repr=True, eq=True, order=False,
+def dataclass(cls=None, *, init=True, repr=True, eq=True, order=False,
               unsafe_hash=False, frozen=False):
     """Returns the same class as was passed in, with dunder methods
     added based on the fields defined in the class.
