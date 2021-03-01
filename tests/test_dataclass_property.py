@@ -39,6 +39,8 @@ def test_normal_property():
     p = Props()
     try:
         d = dataclasses.asdict(p)
+        if isinstance(d.get('x', None), property):
+            raise TypeError
         raise AssertionError('A type annotated property will have a default value '
                              'of a property object instead of int.')
     except TypeError:
@@ -228,18 +230,25 @@ def test_field_property():
     # Props.__annotations__['z'] = int
     # Props.__annotations__['p'] = int
 
-    # Props = dataclasses.dataclass(Props)
+    Props = dataclass(Props)
+
+    # Check fields
+    field_names = [f.name for f in dataclasses.fields(Props)]
+    assert 'x' in field_names
+    assert 'y' in field_names
+    assert 'z' in field_names
+    assert 'p' in field_names
 
     p = Props()
-    try:
-        d = dataclasses.asdict(p)
-        print(d)
-        # raise AssertionError('A type annotated property will have a default value '
-        #                      'of a property object instead of int.')
-    except TypeError:
-        pass  # Expected because property object is not pickleable
+    # try:
+    #     d = dataclasses.asdict(p)
+    #     print(d)
+    #     # raise AssertionError('A type annotated property will have a default value '
+    #     #                      'of a property object instead of int.')
+    # except TypeError:
+    #     pass  # Expected because property object is not pickleable
 
-    p = Props(p=0)
+    p = Props(p=0)  # Need dataclass from dataclass_property for class to accept p argument.
     d = dataclasses.asdict(p)
     assert 'x' in d and d['x'] == 1
     assert 'y' in d and d['y'] == 0
@@ -258,6 +267,6 @@ if __name__ == '__main__':
     test_normal_property()
     test_dataclass_property_normal_property()
     test_dataclass_property_field_property()
-    # test_field_property()
+    test_field_property()
 
     print('All tests finished successfully!')
