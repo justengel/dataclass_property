@@ -11,7 +11,7 @@ import types
 import inspect
 import functools
 from typing import Callable, Any
-from dataclasses import Field, _FIELD, MISSING, field, InitVar, _is_classvar, _FIELD_CLASSVAR, \
+from dataclasses import Field, _FIELD, MISSING, field, fields, InitVar, _is_classvar, _FIELD_CLASSVAR, \
     _is_type, _is_initvar, _FIELD_INITVAR, _PARAMS, _DataclassParams, _FIELDS, _POST_INIT_NAME, _set_new_attribute, \
     _repr_fn, _tuple_str, _cmp_fn, _frozen_get_del_attr, _hash_action, _init_fn
 
@@ -57,7 +57,15 @@ class field_property(property):
 
         self.default_attr = default
         self.default_factory_attr = default_factory
+        self.name = None
         super().__init__(fget, fset, fdel, doc=doc)
+
+    def __set_name__(self, owner, name):
+        try:
+            if self.name is None:
+                self.name = name
+        except (AttributeError, Exception):
+            pass
 
     def getter(self, fget: Callable[[Any], Any]) -> 'field_property':
         return type(self)(fget, self.fset, self.fdel, self.__doc__,
