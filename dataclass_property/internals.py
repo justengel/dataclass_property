@@ -16,10 +16,36 @@ from dataclasses import Field, _FIELD, MISSING, field, InitVar, _is_classvar, _F
     _repr_fn, _tuple_str, _cmp_fn, _frozen_get_del_attr, _hash_action, _init_fn
 
 
-__all__ = ['field_property', 'dataclass', '_get_field', '_process_class']
+__all__ = ['field_property', 'get_return_type', 'dataclass', '_get_field', '_process_class']
+
+
+def get_return_type(default: Any = MISSING, default_factory: Callable[[], Any] = MISSING):
+    """Find the return type for the default value or default_factory.
+
+    Args:
+        default (object)[MISSING]: is the default value of the field.
+        default_factory (callable/function)[MISSING]: is a 0-argument function called to initialize a field's value.
+
+    Returns:
+        return_type (type/object)[MISSING]: The type of the default or MISSING if not found.
+    """
+    # Fields must have an annotation
+    return_type = inspect.signature(default_factory).return_annotation
+    if return_type == inspect.Signature.empty:
+        return_type = MISSING
+        if default != MISSING:
+            return_type = type(default)
+        elif default_factory != MISSING:
+            try:
+                return_type = type(default_factory())
+            except (ValueError, TypeError, Exception):
+                pass
+    return return_type
 
 
 class field_property(property):
+
+    get_return_type = staticmethod(get_return_type)
 
     def __init__(self,
                  fget: Callable[[Any], Any] = None,
@@ -75,8 +101,8 @@ def dataclass(cls=None, *, init=True, repr=True, eq=True, order=False,
             cls.__annotations__ = {}
         for name, attr in cls.__dict__.items():
             if isinstance(attr, property) and name not in cls.__annotations__:
-                return_type = inspect.signature(attr.fget).return_annotation
-                if return_type != inspect.Signature.empty:
+                return_type = get_return_type(default_factory=attr.fget)
+                if return_type != MISSING:
                     cls.__annotations__[name] = return_type
 
         return _process_class(cls, init, repr, eq, order, unsafe_hash, frozen)
