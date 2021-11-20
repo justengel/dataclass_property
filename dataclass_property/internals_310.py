@@ -1,13 +1,16 @@
 """
 Really hate how the Python standard lib writes code.
 If it used a class properly then you could override the class methods.
+
+Edited spots are marked with <<<EDITED>>>
 """
 import sys
 import abc
 import types
 import inspect
 import dataclasses
-from .internals_old import DataclassInterface as BaseDataclassInterface, get_return_type
+
+from .interface import BaseDataclassInterface
 
 
 __all__ = ['DataclassInterface', 'dataclass']
@@ -39,14 +42,7 @@ class DataclassInterface(BaseDataclassInterface):
         """
         def wrap(cls):
             # Annotate all properties
-            if not hasattr(cls, '__annotations__'):
-                cls.__annotations__ = {}
-            for name, attr in cls.__dict__.items():
-                if isinstance(attr, property) and name not in cls.__annotations__:
-                    return_type = get_return_type(default_factory=attr.fget)
-                    if return_type != MISSING:
-                        cls.__annotations__[name] = return_type
-
+            mcs.annotate_properties(cls)  # <<<EDITED>>>
             return mcs._process_class(cls, init, repr, eq, order, unsafe_hash, frozen, match_args, kw_only, slots)
 
         # See if we're being called as @dataclass or @dataclass().
@@ -66,7 +62,7 @@ class DataclassInterface(BaseDataclassInterface):
 
         # If the default value isn't derived from Field, then it's only a
         # normal default value.  Convert it to a Field().
-        f = mcs.make_field(cls, a_name)
+        f = mcs.make_field(cls, a_name)  # <<<EDITED>>>
 
         # Only at this point do we know the name and the type.  Set them.
         f.name = a_name
@@ -221,7 +217,7 @@ class DataclassInterface(BaseDataclassInterface):
                 kw_only = True
             else:
                 # Otherwise it's a field of some type.
-                cls_fields.append(mcs._get_field(cls, name, type, kw_only))
+                cls_fields.append(mcs._get_field(cls, name, type, kw_only))  # <<<EDITED>>>
 
         for f in cls_fields:
             fields[f.name] = f

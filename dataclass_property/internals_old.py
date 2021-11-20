@@ -1,4 +1,6 @@
 """
+Edited spots are marked with <<<EDITED>>>
+
 Changes:
   * Custom field_property
   * Custom dataclass function to automatically annotate properties.
@@ -9,111 +11,19 @@ Changes:
 import sys
 import types
 import inspect
-import functools
-from typing import Callable, Any
-
 import dataclasses
 
+from .interface import BaseDataclassInterface
 
-__all__ = ['field_property', 'get_return_type', 'dataclass', 'DataclassInterface']
+
+__all__ = ['dataclass', 'DataclassInterface']
 
 
 MISSING = dataclasses.MISSING
 
 
-def get_return_type(default: Any = MISSING, default_factory: Callable[[], Any] = MISSING):
-    """Find the return type for the default value or default_factory.
-
-    Args:
-        default (object)[MISSING]: is the default value of the field.
-        default_factory (callable/function)[MISSING]: is a 0-argument function called to initialize a field's value.
-
-    Returns:
-        return_type (type/object)[MISSING]: The type of the default or MISSING if not found.
-    """
-    # Fields must have an annotation
-    return_type = inspect.signature(default_factory).return_annotation
-    if return_type == inspect.Signature.empty:
-        return_type = MISSING
-        if default != MISSING:
-            return_type = type(default)
-        elif default_factory != MISSING:
-            try:
-                return_type = type(default_factory())
-            except (ValueError, TypeError, Exception):
-                pass
-    return return_type
-
-
-class field_property(property):
-
-    get_return_type = staticmethod(get_return_type)
-
-    def __init__(self,
-                 fget: Callable[[Any], Any] = None,
-                 fset: Callable[[Any, Any], None] = None,
-                 fdel: Callable[[Any], None] = None,
-                 doc: str = None,
-                 default: Any = MISSING,
-                 default_factory: Callable[[], Any] = MISSING):
-
-        self.default_attr = default
-        self.default_factory_attr = default_factory
-        self.name = None
-        super().__init__(fget, fset, fdel, doc=doc)
-
-    def __set_name__(self, owner, name):
-        try:
-            if self.name is None:
-                self.name = name
-        except (AttributeError, Exception):
-            pass
-
-    def getter(self, fget: Callable[[Any], Any]) -> 'field_property':
-        return type(self)(fget, self.fset, self.fdel, self.__doc__,
-                          default=self.default_attr, default_factory=self.default_factory_attr)
-
-    def setter(self, fset: Callable[[Any, Any], None]) -> 'field_property':
-        return type(self)(self.fget, fset, self.fdel, self.__doc__,
-                          default=self.default_attr, default_factory=self.default_factory_attr)
-
-    def deleter(self, fdel: Callable[[Any], None]) -> 'field_property':
-        return type(self)(self.fget, self.fset, fdel, self.__doc__,
-                          default=self.default_attr, default_factory=self.default_factory_attr)
-
-    def default(self, default: Any) -> 'field_property':
-        self.default_attr = default
-        return self
-
-    def default_factory(self, default_factory: Callable[[Any], None]) -> 'field_property':
-        self.default_factory_attr = default_factory
-        return self
-
-    __call__ = getter
-
-
-class DataclassInterface:
+class DataclassInterface(BaseDataclassInterface):
     """Basically, I need to override certain methods to support dataclass properties."""
-
-    field = dataclasses.field
-    Field = dataclasses.Field
-    _FIELD = dataclasses._FIELD
-    _is_classvar = dataclasses._is_classvar
-    _FIELD_CLASSVAR = dataclasses._FIELD_CLASSVAR
-    _is_type = dataclasses._is_type
-    _is_initvar = dataclasses._is_initvar
-    _FIELD_INITVAR = dataclasses._FIELD_INITVAR
-    _PARAMS = dataclasses._PARAMS
-    _DataclassParams = dataclasses._DataclassParams
-    _FIELDS = dataclasses._FIELDS
-    _POST_INIT_NAME = dataclasses._POST_INIT_NAME
-    _set_new_attribute = dataclasses._set_new_attribute
-    _repr_fn = dataclasses._repr_fn
-    _tuple_str = dataclasses._tuple_str
-    _cmp_fn = dataclasses._cmp_fn
-    _frozen_get_del_attr = dataclasses._frozen_get_del_attr
-    _hash_action = dataclasses._hash_action
-    _init_fn = dataclasses._init_fn
 
     @classmethod
     def dataclass(mcs, cls=None, *, init=True, repr=True, eq=True, order=False,
@@ -131,14 +41,7 @@ class DataclassInterface:
         """
         def wrap(cls):
             # Annotate all properties
-            if not hasattr(cls, '__annotations__'):
-                cls.__annotations__ = {}
-            for name, attr in cls.__dict__.items():
-                if isinstance(attr, property) and name not in cls.__annotations__:
-                    return_type = get_return_type(default_factory=attr.fget)
-                    if return_type != MISSING:
-                        cls.__annotations__[name] = return_type
-
+            mcs.annotate_properties(cls)  # <<<EDITED>>>
             return mcs._process_class(cls, init, repr, eq, order, unsafe_hash, frozen)
 
         # See if we're being called as @dataclass or @dataclass().
@@ -150,40 +53,6 @@ class DataclassInterface:
         return wrap(cls)
 
     @classmethod
-    def make_field(mcs, cls, a_name):
-        # If the default value isn't derived from Field, then it's only a
-        # normal default value.  Convert it to a Field().
-        default = getattr(cls, a_name, MISSING)
-        if isinstance(default, mcs.Field):
-            f = default
-        else:
-            if isinstance(default, types.MemberDescriptorType):
-                # This is a field in __slots__, so it has no default value.
-                default = MISSING
-            elif isinstance(default, property):
-                default_factory_attr = getattr(default, 'default_factory_attr', MISSING)
-                default_attr = getattr(default, 'default_attr', MISSING)
-
-                if default_factory_attr != MISSING:
-                    if isinstance(default_factory_attr, (staticmethod, classmethod)):
-                        default_factory_attr = default_factory_attr.__get__(cls, cls)
-                    f = mcs.field(default_factory=default_factory_attr)
-                elif default_attr != MISSING:
-                    f = mcs.field(default=default_attr)
-                else:
-                    return_type = inspect.signature(default.fget).return_annotation
-                    if return_type != inspect.Signature.empty:
-                        default = return_type
-                        f = mcs.field(default_factory=default)
-                    else:
-                        default = MISSING
-                        f = mcs.field(default=default)
-            else:
-                f = mcs.field(default=default)
-
-        return f
-
-    @classmethod
     def _get_field(mcs, cls, a_name, a_type):
         # Return a Field object for this field name and type.  ClassVars
         # and InitVars are also returned, but marked as such (see
@@ -191,7 +60,7 @@ class DataclassInterface:
 
         # If the default value isn't derived from Field, then it's only a
         # normal default value.  Convert it to a Field().
-        f = mcs.make_field(cls, a_name)
+        f = mcs.make_field(cls, a_name)  # <<<EDITED>>>
 
         # Only at this point do we know the name and the type.  Set them.
         f.name = a_name
@@ -313,7 +182,7 @@ class DataclassInterface:
         # Now find fields in our class.  While doing so, validate some
         # things, and set the default values (as class attributes) where
         # we can.
-        cls_fields = [mcs._get_field(cls, name, type)
+        cls_fields = [mcs._get_field(cls, name, type)    # <<<EDITED>>>
                       for name, type in cls_annotations.items()]
         for f in cls_fields:
             fields[f.name] = f
