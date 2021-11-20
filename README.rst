@@ -5,6 +5,11 @@ dataclass_property
 Add the ability to use properties with dataclasses.
 This allows for better input validation on dataclasses.
 
+Most of the code base is a direct copy from dataclasses with modifications.
+Unfortunately, dataclasses were not written in a way where you can extend the functionality easily.
+I changed the code to use a class based system, so the functionality could be extended.
+It's still not fun to work with the dataclasses library.
+
 
 Examples
 ========
