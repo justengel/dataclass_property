@@ -1,6 +1,6 @@
 import inspect
 import functools
-from typing import Callable, Any
+from typing import Callable, Any, Union, Mapping, Optional
 
 import dataclasses
 
@@ -39,17 +39,35 @@ class field_property(property):
 
     get_return_type = staticmethod(get_return_type)
 
+    # Field parameters (varname, type, default)
+    init = True
+    repr = True
+    hash = None
+    compare = True
+    metadata = None
+    kw_only = MISSING
+    FIELD_PARAMS = [('init', bool, True), ('repr', bool, True), ('hash', Union[bool, None], None),
+                    ('compare', bool, True), ('metadata', Optional[Mapping], None),
+                    ('kw_only', Optional[bool], MISSING)]
+
     def __init__(self,
                  fget: Callable[[Any], Any] = None,
                  fset: Callable[[Any, Any], None] = None,
                  fdel: Callable[[Any], None] = None,
                  doc: str = None,
                  default: Any = MISSING,
-                 default_factory: Callable[[], Any] = MISSING):
+                 default_factory: Callable[[], Any] = MISSING,
+                 **kwargs
+                 ):
 
         self.default_attr = default
         self.default_factory_attr = default_factory
         self.name = None
+
+        # Set defaults or given keyword arguments for the Field parameters
+        for (varname, typ, dv) in self.FIELD_PARAMS:
+            setattr(self, varname, kwargs.get(varname, dv))
+
         super().__init__(fget, fset, fdel, doc=doc)
 
     def __set_name__(self, owner, name):
@@ -60,16 +78,22 @@ class field_property(property):
             pass
 
     def getter(self, fget: Callable[[Any], Any]) -> 'field_property':
+        field_kwargs = {varname: getattr(self, varname, dv) for (varname, tp, dv) in self.FIELD_PARAMS}
         return type(self)(fget, self.fset, self.fdel, self.__doc__,
-                          default=self.default_attr, default_factory=self.default_factory_attr)
+                          default=self.default_attr, default_factory=self.default_factory_attr,
+                          **field_kwargs)
 
     def setter(self, fset: Callable[[Any, Any], None]) -> 'field_property':
+        field_kwargs = {varname: getattr(self, varname, dv) for (varname, tp, dv) in self.FIELD_PARAMS}
         return type(self)(self.fget, fset, self.fdel, self.__doc__,
-                          default=self.default_attr, default_factory=self.default_factory_attr)
+                          default=self.default_attr, default_factory=self.default_factory_attr,
+                          **field_kwargs)
 
     def deleter(self, fdel: Callable[[Any], None]) -> 'field_property':
+        field_kwargs = {varname: getattr(self, varname, dv) for (varname, tp, dv) in self.FIELD_PARAMS}
         return type(self)(self.fget, self.fset, fdel, self.__doc__,
-                          default=self.default_attr, default_factory=self.default_factory_attr)
+                          default=self.default_attr, default_factory=self.default_factory_attr,
+                          **field_kwargs)
 
     def default(self, default: Any) -> 'field_property':
         self.default_attr = default

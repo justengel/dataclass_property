@@ -56,24 +56,36 @@ class BaseDataclassInterface:
             if isinstance(default, types.MemberDescriptorType):
                 # This is a field in __slots__, so it has no default value.
                 default = MISSING
-            elif isinstance(default, property):
+            if isinstance(default, property):
                 default_factory_attr = getattr(default, 'default_factory_attr', MISSING)
                 default_attr = getattr(default, 'default_attr', MISSING)
+
+                field_kwargs = {
+                    'init': getattr(default, 'init', True),
+                    'repr': getattr(default, 'repr', True),
+                    'hash': getattr(default, 'hash', None),
+                    'compare': getattr(default, 'hash', True),
+                    'metadata': getattr(default, 'metadata', None),
+                    'kw_only': getattr(default, 'kw_only', MISSING),
+                    }
+
+                if default.fset is None:
+                    field_kwargs['init'] = False
 
                 if default_factory_attr != MISSING:
                     if isinstance(default_factory_attr, (staticmethod, classmethod)):
                         default_factory_attr = default_factory_attr.__get__(cls, cls)
-                    f = mcs.field(default_factory=default_factory_attr)
+                    f = mcs.field(default_factory=default_factory_attr, **field_kwargs)
                 elif default_attr != MISSING:
-                    f = mcs.field(default=default_attr)
+                    f = mcs.field(default=default_attr, **field_kwargs)
                 else:
                     return_type = inspect.signature(default.fget).return_annotation
-                    if return_type != inspect.Signature.empty:
+                    if return_type != inspect.Signature.empty and field_kwargs['init']:
                         default = return_type
-                        f = mcs.field(default_factory=default)
+                        f = mcs.field(default_factory=default, **field_kwargs)
                     else:
                         default = MISSING
-                        f = mcs.field(default=default)
+                        f = mcs.field(default=default, **field_kwargs)
             else:
                 f = mcs.field(default=default)
 
