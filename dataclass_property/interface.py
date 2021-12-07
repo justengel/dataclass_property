@@ -60,16 +60,10 @@ class BaseDataclassInterface:
                 default_factory_attr = getattr(default, 'default_factory_attr', MISSING)
                 default_attr = getattr(default, 'default_attr', MISSING)
 
-                field_kwargs = {
-                    'init': getattr(default, 'init', True),
-                    'repr': getattr(default, 'repr', True),
-                    'hash': getattr(default, 'hash', None),
-                    'compare': getattr(default, 'hash', True),
-                    'metadata': getattr(default, 'metadata', None),
-                    'kw_only': getattr(default, 'kw_only', MISSING),
-                    }
+                field_kwargs = field_property.get_field_params(default)
 
-                if default.fset is None:
+                # If fset is None the property is read-only. Do not initialize.
+                if default.fset is None and field_kwargs.get('init', False):
                     field_kwargs['init'] = False
 
                 if default_factory_attr != MISSING:

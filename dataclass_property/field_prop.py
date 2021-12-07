@@ -46,9 +46,27 @@ class field_property(property):
     compare = True
     metadata = None
     kw_only = MISSING
-    FIELD_PARAMS = [('init', bool, True), ('repr', bool, True), ('hash', Union[bool, None], None),
-                    ('compare', bool, True), ('metadata', Optional[Mapping], None),
-                    ('kw_only', Optional[bool], MISSING)]
+
+    # FIELD_PARAMS = [('init', bool, True), ('repr', bool, True), ('hash', Union[bool, None], None),
+    #                 ('compare', bool, True), ('metadata', Optional[Mapping], None),
+    #                 ('kw_only', Optional[bool], MISSING)]  # 'kw_only' is on newer versions of dataclasses
+    FIELD_PARAMS = [(name, p.annotation, p.default)
+                    for name, p in inspect.signature(dataclasses.field).parameters.items()
+                    if name != 'default' and name != 'default_factory'
+                    ]
+
+    @classmethod
+    def get_field_params(cls, prop=None, **kwargs):
+        d = {}
+
+        # Populate dictionary with the given values, set property values, or field param defaults
+        for (name, ann, default) in cls.FIELD_PARAMS:
+            try:
+                d[name] = kwargs[name]
+            except KeyError:
+                d[name] = getattr(prop, name, default)
+
+        return d
 
     def __init__(self,
                  fget: Callable[[Any], Any] = None,
@@ -65,8 +83,8 @@ class field_property(property):
         self.name = None
 
         # Set defaults or given keyword arguments for the Field parameters
-        for (varname, typ, dv) in self.FIELD_PARAMS:
-            setattr(self, varname, kwargs.get(varname, dv))
+        for varname, value in field_property.get_field_params(self, **kwargs).items():
+            setattr(self, varname, value)
 
         super().__init__(fget, fset, fdel, doc=doc)
 
